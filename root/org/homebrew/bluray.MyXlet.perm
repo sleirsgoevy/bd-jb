@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<n:permissionrequestfile xmlns:n="urn:BDA:bdmv;PRF" orgid="0x56789abc" appid="0x4000">
+    <file value="true"></file>
+    <applifecyclecontrol value="true"></applifecyclecontrol>
+    <servicesel value="true"></servicesel>
+    <userpreferences read="true" write="true"></userpreferences>
+    <bd-vfs value="true"></bd-vfs>
+    <network>
+	<host action="connect,resolve,listen,accept">*</host>
+    </network>
+    <bd-bindingunitarea value="true" />
+</n:permissionrequestfile>
