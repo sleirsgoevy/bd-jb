@@ -153,4 +153,28 @@ public class NativeStuff
         U.freeMemory(buf);
         return pld_addr + 8;
     }
+    public static long writePayload2(byte[] text, byte[] data) throws Exception
+    {
+        long[] p = new long[2];
+        findJitArea(p);
+        long addr_pld = writePayload(text);
+        long offset_pld = addr_pld - p[0];
+        long sceKernelJitCreateAliasOfSharedMemory = NativeUtils.dlsym(0x2001, "sceKernelJitCreateAliasOfSharedMemory");
+        long mmap = NativeUtils.dlsym(0x2001, "mmap");
+        int fd = 0;
+        long map = -1;
+        long mapAddr = 0xc00000000l - (offset_pld & -0x4000);
+        while(fd < 10000 && (map = callFunction(mmap, mapAddr, p[1]-p[0], 5, 1, fd, 0)) == -1)
+            fd++;
+        if(map != mapAddr)
+            throw new RuntimeException("mmap(text) failed");
+        map += offset_pld;
+        long mapData = callFunction(mmap, map+text.length, data.length, 3, 4098, -1, 0);
+        if(mapData != map + text.length)
+            throw new RuntimeException("mmap(data) failed");
+        sun.misc.Unsafe U = NativeUtils.getUnsafe();
+        for(int i = 0; i < data.length; i++)
+            U.putByte(mapData+i, data[i]);
+        return map;
+    }
 }

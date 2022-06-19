@@ -50,11 +50,36 @@ public class MyXlet implements Xlet, ControllerListener {
         fp.installRealAccessor();
     }
 
-    public void runPayload(int port) throws Exception
+    public long loadPayload(int port) throws Exception
     {
         java.net.ServerSocket sock = new java.net.ServerSocket(port);
         byte[] payload = NativeUtils.readResource(sock.accept().getInputStream());
-        NativeStuff.callFunction(NativeStuff.writePayload(payload), NativeUtils.dlsym(0x2001, "sceKernelDlsym"), 0, 0, 0, 0, 0);
+        long addr;
+        if(payload[0] == (byte)0xeb && payload[1] == 11 && payload[2] == (byte)'P' && payload[3] == (byte)'L' && payload[4] == (byte)'D')
+        {
+            int q = 0;
+            for(int i = 12; i >= 5; i--)
+            {
+                int j = payload[i];
+                if(j < 0)
+                    j += 256;
+                q = 256 * q + j;
+            }
+            byte[] a = new byte[q];
+            for(int i = 0; i < q; i++)
+                a[i] = payload[i];
+            byte[] b = new byte[payload.length-q];
+            for(int i = 0; i < b.length; i++)
+                b[i] = payload[q+i];
+            return NativeStuff.writePayload2(a, b);
+        }
+        else
+            return NativeStuff.writePayload(payload);
+    }
+    
+    public void runPayload(int port) throws Exception
+    {
+        NativeStuff.callFunction(loadPayload(9019), NativeUtils.dlsym(0x2001, "sceKernelDlsym"), 0, 0, 0, 0, 0);
     }
 
     public void initXlet(XletContext context) {
@@ -75,9 +100,9 @@ public class MyXlet implements Xlet, ControllerListener {
             messages.add("Hello World!");
             try
             {
-                //runJSServer(4321);
                 escapeSandbox();
                 runPayload(9019);
+                //runJSServer(4321);
             }
             catch(Throwable e)
             {

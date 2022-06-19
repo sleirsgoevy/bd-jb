@@ -6,6 +6,8 @@
 
 typedef int dlsym_t(int, const char*, void*);
 
+char data[64];
+
 int main(dlsym_t* dlsym)
 {
     typeof(socket)* f_socket;
@@ -30,10 +32,14 @@ int main(dlsym_t* dlsym)
     };
     f_bind(sock, (void*)&addr, sizeof(addr));
     f_listen(sock, 1);
+    char* dst = data;
+    const char* src = "Hello, BD-JB!\n";
+    while(*src)
+        *dst++ = *src++;
     for(;;)
     {
         int sock2 = f_accept(sock, NULL, NULL);
-        f_write(sock2, "Hello, BD-JB!\n", 14);
+        f_write(sock2, data, dst-data);
         f_close(sock2);
     }
     return 0;
