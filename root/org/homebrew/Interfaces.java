@@ -13,21 +13,15 @@ public class Interfaces
             super(path);
         }
     }
-    public static interface IProtocol
+    public static interface IFileURLConnection
     {
-        javax.microedition.io.Connection prim_openProtocol(String path, String unused, int mode) throws java.io.IOException, java.rmi.RemoteException;
-        void prim_realOpen() throws java.io.IOException, java.rmi.RemoteException;
+        java.io.InputStream getInputStream() throws java.io.IOException, java.rmi.RemoteException;
     }
-    public static class CProtocol extends com.sun.cdc.io.j2me.file.Protocol implements IProtocol{}
-    public static interface IService
+    public static class CFileURLConnection extends sun.net.www.protocol.file.FileURLConnection implements IFileURLConnection
     {
-        Object newInstance(Object arg) throws java.security.NoSuchAlgorithmException, java.rmi.RemoteException;
-    }
-    public static class CService extends com.oracle.security.Service implements IService
-    {
-        public CService(java.security.Provider pr)
+        public CFileURLConnection(java.net.URL u, java.io.File f)
         {
-            super(pr);
+            super(u, f);
         }
     }
 }

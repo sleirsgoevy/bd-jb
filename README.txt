@@ -1,3 +1,1 @@
-BD-JB reimplementation based on TheFlow's report and presentation. Implements loading arbitrary .bin payloads using vulnerabilities #2 (privileged constructor call), #3 (privileged method call), #4 (jit hack) from the report. Listens for payloads on port 9019.
-
-The first (and only) argument to the payload is the address of sceKernelDlsym, which can be used to resolve other symbols. It seems that libkernel_sys.sprx always has id 0x2001, and you can look up other libraries by getting the full list of handles and looking up name of each handle. You can't directly call syscalls due to missing kernel patches.
+BD-JB reimplementation based on TheFlow's report and presentation. This PoC for the PS5 just prints the directory listing of /app0, but there is more to come.
