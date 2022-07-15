@@ -42,11 +42,11 @@ public class JavaSecurityProxy implements jdk.internal.access.JavaSecurityAccess
     {
         return real.getProtectionDomainCache();
     }
-    public Object doPrivilegedWithCombiner(PrivilegedExceptionAction a, AccessControlContext b, Permission... c) throws PrivilegedActionException
+    public Object doPrivilegedWithCombiner(PrivilegedExceptionAction a, AccessControlContext b, Permission[] c) throws PrivilegedActionException
     {
         return real.doPrivilegedWithCombiner(a, b, c);
     }
-    public Object doPrivileged(PrivilegedAction a, AccessControlContext b, Permission... c)
+    public Object doPrivileged(PrivilegedAction a, AccessControlContext b, Permission[] c)
     {
         return real.doPrivileged(a, b, c);
     }
@@ -62,7 +62,7 @@ public class JavaSecurityProxy implements jdk.internal.access.JavaSecurityAccess
     {
         real.putService(a, b);
     }
-    public Set<Service> getServices(Provider a)
+    public Set getServices(Provider a)
     {
         return real.getServices(a);
     }

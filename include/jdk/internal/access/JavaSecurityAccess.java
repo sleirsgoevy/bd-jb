@@ -29,12 +29,12 @@ public interface JavaSecurityAccess
     Object doIntersectionPrivilege(PrivilegedAction a, AccessControlContext b, AccessControlContext c);
     Object doIntersectionPrivilege(PrivilegedAction a, AccessControlContext b);
     ProtectionDomainCache getProtectionDomainCache();
-    Object doPrivilegedWithCombiner(PrivilegedExceptionAction a, AccessControlContext b, Permission... c) throws PrivilegedActionException;
-    Object doPrivileged(PrivilegedAction a, AccessControlContext b, Permission... c);
+    Object doPrivilegedWithCombiner(PrivilegedExceptionAction a, AccessControlContext b, Permission[] c) throws PrivilegedActionException;
+    Object doPrivileged(PrivilegedAction a, AccessControlContext b, Permission[] c);
     Entry getEntry(KeyStore a, String b, ProtectionParameter c) throws NoSuchAlgorithmException, GeneralSecurityException;
     Service getService(Provider a, String b, String c);
     void putService(Provider a, Service b);
-    Set<Service> getServices(Provider a);
+    Set getServices(Provider a);
     Provider configure(Provider a, String b);
     Object newInstance(Class a, String b, Object c) throws Exception;
     boolean checkEngine(String a);
