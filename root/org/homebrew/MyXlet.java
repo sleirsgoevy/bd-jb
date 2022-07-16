@@ -35,6 +35,18 @@ public class MyXlet implements Xlet, ControllerListener {
         java.net.URLClassLoader ldr = java.net.URLClassLoader.newInstance(new java.net.URL[]{new java.net.URL("file:///VP/BDMV/JAR/00000.jar")});
         ldr.loadClass("org.homebrew.Payload").newInstance();
         jdk.internal.access.SharedSecrets.setJavaSecurityAccess(real);
+        Iterator iter = ModuleLayer.boot().modules().iterator();
+        Module java_base = null;
+        while(!(java_base = (Module)iter.next()).getName().equals("java.base"));
+        java.lang.reflect.Method getModule = Class.class.getDeclaredMethod("getModule", new Class[0]);
+        getModule.setAccessible(true);
+        Module own_module = (Module)getModule.invoke(MyXlet.class, null);
+        java.lang.reflect.Field openPackages = Module.class.getDeclaredField("openPackages");
+        openPackages.setAccessible(true);
+        Map pkgs = (Map)openPackages.get(java_base);
+        Set own = new HashSet();
+        own.add(own_module);
+        pkgs.put("jdk.internal.misc", own);
     }
 
     /*public void runJSServer(int port)
@@ -70,6 +82,8 @@ public class MyXlet implements Xlet, ControllerListener {
             {
                 escapeSandbox();
                 //runJSServer(4321);
+                NativeUtils.addSymbol("Java_org_homebrew_NativeStuff_getpid", NativeUtils.dlsym(0x2001, "getpid"));
+                messages.add("getpid() = "+NativeStuff.getpid());
                 messages.add("Directory listing of /app0:");
                 String[] ls = (new java.io.File("/app0")).list();
                 for(int i = 0; i < ls.length; i++)
