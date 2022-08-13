@@ -41,11 +41,11 @@ public class MyXlet implements Xlet, ControllerListener {
         java.lang.reflect.Method getModule = Class.class.getDeclaredMethod("getModule", new Class[0]);
         getModule.setAccessible(true);
         Module own_module = (Module)getModule.invoke(MyXlet.class, null);
+        Set own = new HashSet();
+        own.add(own_module);
         java.lang.reflect.Field openPackages = Module.class.getDeclaredField("openPackages");
         openPackages.setAccessible(true);
         Map pkgs = (Map)openPackages.get(java_base);
-        Set own = new HashSet();
-        own.add(own_module);
         pkgs.put("jdk.internal.misc", own);
     }
 
@@ -82,12 +82,14 @@ public class MyXlet implements Xlet, ControllerListener {
             {
                 escapeSandbox();
                 //runJSServer(4321);
-                NativeUtils.addSymbol("Java_org_homebrew_NativeStuff_getpid", NativeUtils.dlsym(0x2001, "getpid"));
-                messages.add("getpid() = "+NativeStuff.getpid());
                 messages.add("Directory listing of /app0:");
                 String[] ls = (new java.io.File("/app0")).list();
                 for(int i = 0; i < ls.length; i++)
-                    messages.add(ls[i]);
+                    messages.add("* " + ls[i]);
+                messages.add("Directory listing of /:");
+                ls = NativeStuff.listdir("/");
+                for(int i = 0; i < ls.length; i++)
+                    messages.add("* " + ls[i]);
             }
             catch(Throwable e)
             {
