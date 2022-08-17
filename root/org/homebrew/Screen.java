@@ -25,7 +25,7 @@ public class Screen extends Container {
         g.setColor(new Color(100, 110, 160));
         g.fillRect(0, 0, getWidth(), getHeight());
         g.setColor(new Color(255, 255, 255));
-        int top = 100;
+        int top = 60;
         for (int i = 0; i < messages.size(); i++) {
         	String message = (String) messages.get(i);
            int message_width = g.getFontMetrics().stringWidth(message);

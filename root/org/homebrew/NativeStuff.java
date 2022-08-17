@@ -7,9 +7,12 @@ public class NativeStuff
     private static long mov_rax_rdi_0x10_ret = 0;
     private static long getcontext = 0;
     private static long setcontext = 0;
+    private static long makecontext = 0;
     private static long open = 0;
     private static long getdents = 0;
     private static long close = 0;
+    private static long sceKernelGetFsSandboxRandomWord = 0;
+    private static java.lang.reflect.Field fd_fd = null;
     private static void init() throws Exception
     {
         if(!gadget_initialized)
@@ -24,12 +27,21 @@ public class NativeStuff
             getcontext = NativeUtils.dlsym(0x2001, "getcontext");
         if(setcontext == 0)
             setcontext = NativeUtils.dlsym(0x2001, "setcontext");
+        if(makecontext == 0)
+            makecontext = NativeUtils.dlsym(2, "makecontext");
         if(open == 0)
             open = NativeUtils.dlsym(0x2001, "open");
         if(getdents == 0)
             getdents = NativeUtils.dlsym(0x2001, "getdents");
         if(close == 0)
             close = NativeUtils.dlsym(0x2001, "close");
+        if(sceKernelGetFsSandboxRandomWord == 0)
+            sceKernelGetFsSandboxRandomWord = NativeUtils.dlsym(0x2001, "sceKernelGetFsSandboxRandomWord");
+        if(fd_fd == null)
+        {
+            fd_fd = java.io.FileDescriptor.class.getDeclaredField("fd");
+            fd_fd.setAccessible(true);
+        }
     }
     private static long callGadget(long func1, long func2, long[] args) throws Exception
     {
@@ -38,7 +50,7 @@ public class NativeStuff
         long obj2 = NativeUtils.allocateMemory(0xa0);
         long obj3 = NativeUtils.allocateMemory(256);
         long obj4 = NativeUtils.allocateMemory(0xe0);
-        long obj5 = NativeUtils.allocateMemory(0x4000);
+        long obj5 = NativeUtils.allocateMemory(0x4c0);
         long obj6 = NativeUtils.allocateMemory(0x160);
         NativeUtils.putLong(obj1, obj2);
         NativeUtils.putLong(obj2+0x98, obj3);
@@ -106,5 +118,133 @@ public class NativeStuff
         for(int i = 0; i < ans.size(); i++)
             arr[i] = (String)ans.get(i);
         return arr;
+    }
+    public static long chainContext(long next, long func, long arg1, long arg2, long arg3) throws Exception
+    {
+        init();
+        long stack = NativeUtils.allocateMemory(4096);
+        long ctxt = NativeUtils.allocateMemory(0x4000);
+        for(int i = 0; i < 0x4000; i += 8)
+            NativeUtils.putLong(ctxt+i, 0);
+        callFunction(getcontext, ctxt, 0, 0, 0, 0, 0);
+        NativeUtils.putLong(ctxt+0x4c0, next);
+        NativeUtils.putLong(ctxt+0x4c8, stack);
+        NativeUtils.putLong(ctxt+0x4d0, 4096);
+        callFunction(makecontext, ctxt, func, 3, arg1, arg2, arg3);
+        return ctxt;
+    }
+    public static String getFsSandboxRandomWord() throws Exception
+    {
+        long ptr = callFunction(sceKernelGetFsSandboxRandomWord, 0, 0, 0, 0, 0, 0);
+        String ans = "";
+        for(int i = 0; NativeUtils.getByte(ptr+i) != 0; i++)
+            ans += (char)NativeUtils.getByte(ptr+i);
+        return ans;
+    }
+    public static long packContext(long ctxt) throws Exception
+    {
+        /* 4.03 offset hardcoded */
+        long handle = NativeUtils.dlopen("/" + getFsSandboxRandomWord() + "/common/lib/libScePlayerInvitationDialog.sprx");
+        long fn1 = NativeUtils.dlsym(handle, "scePlayerInvitationDialogInitialize");
+        long fn2 = NativeUtils.dlsym(handle, "scePlayerInvitationDialogTerminate");
+        long vt = NativeUtils.allocateMemory(16);
+        NativeUtils.putLong(fn1+0xbe00, ctxt);
+        NativeUtils.putLong(ctxt, vt);
+        NativeUtils.putLong(ctxt+8, -1);
+        NativeUtils.putLong(vt+8, setcontext);
+        return fn2+18;
+    }
+    public static java.io.FileDescriptor getFD(int fd) throws Exception
+    {
+        init();
+        java.io.FileDescriptor ans = new java.io.FileDescriptor();
+        fd_fd.set(ans, new java.lang.Integer(fd));
+        return ans;
+    }
+    public static class SignalThread
+    {
+        public long sigframe;
+        public int comm_fd;
+        public java.io.FileInputStream comm_in;
+        public java.io.FileOutputStream comm_out;
+        public SignalThread() throws Exception
+        {
+            long pipebuf = NativeUtils.allocateMemory(8);
+            callFunction(NativeUtils.dlsym(0x2001, "socketpair"), 1, 1, 0, pipebuf, 0, 0);
+            int sig_fd = NativeUtils.getInt(pipebuf);
+            comm_fd = NativeUtils.getInt(pipebuf+4);
+            comm_in = new java.io.FileInputStream(getFD(comm_fd));
+            comm_out = new java.io.FileOutputStream(getFD(comm_fd));
+            final long stack = callFunction(NativeUtils.dlsym(0x2001, "mmap"), 0, 16384, 3, 4098, -1, 0);
+            sigframe = stack + 0x38b0;
+            long ctx = 0;
+            ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "sigreturn"), sigframe, 0, 0);
+            ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "_read"), sig_fd, pipebuf, 1);
+            ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "_write"), sig_fd, pipebuf, 1);
+            //ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "sceKernelSleep"), 5, 0, 0);
+            long cbk = packContext(ctx);
+            NativeUtils.putLong(stack, cbk); //NativeUtils.dlsym(0x2001, "sceKernelSleep"));
+            NativeUtils.putLong(stack+8, 3);
+            NativeUtils.putLong(stack+16, 0);
+            NativeUtils.putLong(stack+24, 0);
+            (new Thread()
+            {
+                public void run()
+                {
+                    try
+                    {
+                        callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 5, stack, 0, 0, 0, 0);
+                        //callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 11, stack, 0, 0, 0, 0);
+                        callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 31, stack, 0, 0, 0, 0);
+                        NativeUtils.putLong(stack, stack);
+                        NativeUtils.putLong(stack+8, 16384);
+                        NativeUtils.putLong(stack+16, 0);
+                        callFunction(NativeUtils.dlsym(0x2001, "sigaltstack"), stack, 0, 0, 0, 0, 0);
+                        long self = callFunction(NativeUtils.dlsym(0x2001, "pthread_self"), 0, 0, 0, 0, 0, 0);
+                        callFunction(NativeUtils.dlsym(0x2001, "pthread_kill"), self, 31, 0, 0, 0, 0);
+                    }
+                    catch(Exception e){}
+                }
+            }).start();
+        }
+        public void awaitSignal() throws Exception
+        {
+            comm_in.read();
+        }
+        public long peek(int offset) throws Exception
+        {
+            return NativeUtils.fastGetLong(sigframe+offset);
+        }
+        public void poke(int offset, long value) throws Exception
+        {
+            NativeUtils.putLong(sigframe+offset, value);
+        }
+        public void cont() throws Exception
+        {
+            comm_out.write(0);
+            comm_in.read();
+        }
+        /* from freebsd machine/ucontext.h */
+        public static final int RDI = 0x48;
+        public static final int RSI = 0x50;
+        public static final int RDX = 0x58;
+        public static final int RCX = 0x60;
+        public static final int R8 = 0x68;
+        public static final int R9 = 0x70;
+        public static final int RAX = 0x78;
+        public static final int RBX = 0x80;
+        public static final int RBP = 0x88;
+        public static final int R10 = 0x90;
+        public static final int R11 = 0x98;
+        public static final int R12 = 0xa0;
+        public static final int R13 = 0xa8;
+        public static final int R14 = 0xb0;
+        public static final int R15 = 0xb8;
+        public static final int TRAPNO = 0xc0; //32-bit
+        public static final int CR2 = 0xc8;
+        public static final int ERRCODE = 0xd8;
+        public static final int RIP = 0xe0;
+        public static final int EFLAGS = 0xf0;
+        public static final int RSP = 0xf8;
     }
 }
