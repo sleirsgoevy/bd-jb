@@ -177,6 +177,7 @@ public class NativeStuff
             comm_out = new java.io.FileOutputStream(getFD(comm_fd));
             final long stack = callFunction(NativeUtils.dlsym(0x2001, "mmap"), 0, 16384, 3, 4098, -1, 0);
             sigframe = stack + 0x38b0;
+            /* order is reversed */
             long ctx = 0;
             ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "sigreturn"), sigframe, 0, 0);
             ctx = chainContext(ctx, NativeUtils.dlsym(0x2001, "_read"), sig_fd, pipebuf, 1);
@@ -187,25 +188,20 @@ public class NativeStuff
             NativeUtils.putLong(stack+8, 3);
             NativeUtils.putLong(stack+16, 0);
             NativeUtils.putLong(stack+24, 0);
-            (new Thread()
-            {
-                public void run()
-                {
-                    try
-                    {
-                        callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 5, stack, 0, 0, 0, 0);
-                        //callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 11, stack, 0, 0, 0, 0);
-                        callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 31, stack, 0, 0, 0, 0);
-                        NativeUtils.putLong(stack, stack);
-                        NativeUtils.putLong(stack+8, 16384);
-                        NativeUtils.putLong(stack+16, 0);
-                        callFunction(NativeUtils.dlsym(0x2001, "sigaltstack"), stack, 0, 0, 0, 0, 0);
-                        long self = callFunction(NativeUtils.dlsym(0x2001, "pthread_self"), 0, 0, 0, 0, 0, 0);
-                        callFunction(NativeUtils.dlsym(0x2001, "pthread_kill"), self, 31, 0, 0, 0, 0);
-                    }
-                    catch(Exception e){}
-                }
-            }).start();
+            NativeUtils.putLong(stack+48, stack);
+            NativeUtils.putLong(stack+56, 16384);
+            NativeUtils.putLong(stack+64, 0);
+            /* order is reversed */
+            long ctx2 = 0;
+            ctx2 = chainContext(ctx2, NativeUtils.dlsym(0x2001, "pthread_kill"), 0, 5, 0);
+            long kill_args = NativeUtils.getLong(ctx2+0x58);
+            ctx2 = chainContext(ctx2, NativeUtils.dlsym(0x2001, "sigaltstack"), stack+48, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 4, stack, 0, 0, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 5, stack, 0, 0, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 10, stack, 0, 0, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 11, stack, 0, 0, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 12, stack, 0, 0, 0, 0);
+            callFunction(NativeUtils.dlsym(0x2001, "pthread_create"), kill_args, 0, setcontext, ctx2, 0, 0);
         }
         public void awaitSignal() throws Exception
         {
