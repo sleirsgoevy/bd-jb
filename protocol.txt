@@ -1,0 +1,10 @@
+# remote signal protocol
+
+<cmd> ...
+
+00 <name> 00 -> <addr:8> = dlsym
+01 <size> <addr:8> <data> = write
+02 <size> <addr:8> -> <data> = read
+03 <sig:8> <regs:160> -> <regs:160> = execute
+04 -> <rw_page:8> <ro_page:8> = get pages
+05 = flush write

@@ -17,7 +17,7 @@ import org.dvb.event.UserEvent;
 
 import org.havi.ui.*;
 
-import org.mozilla.javascript.*;
+//import org.mozilla.javascript.*;
 
 
 public class MyXlet implements Xlet, ControllerListener {
@@ -49,7 +49,7 @@ public class MyXlet implements Xlet, ControllerListener {
         pkgs.put("jdk.internal.misc", own);
     }
 
-    public void runJSServer(int port)
+    /*public void runJSServer(int port)
     {
         Context ctx = Context.enter();
         ctx.setOptimizationLevel(-1);
@@ -60,7 +60,7 @@ public class MyXlet implements Xlet, ControllerListener {
     public static void main(String[] argv)
     {
         (new MyXlet()).runJSServer(4321);
-    }
+    }*/
 
 	public void initXlet(XletContext context) {
 		this.context = context;
@@ -81,15 +81,24 @@ public class MyXlet implements Xlet, ControllerListener {
             try
             {
                 escapeSandbox();
-                runJSServer(4321);
-                messages.add("Directory listing of /app0:");
-                String[] ls = (new java.io.File("/app0")).list();
-                for(int i = 0; i < ls.length; i++)
-                    messages.add("* " + ls[i]);
-                messages.add("Directory listing of /:");
-                ls = NativeStuff.listdir("/");
-                for(int i = 0; i < ls.length; i++)
-                    messages.add("* " + ls[i]);
+                //runJSServer(4321);
+                (new Thread()
+                {
+                    public void run()
+                    {
+                        try
+                        {
+                            java.net.ServerSocket sock = new java.net.ServerSocket(1234);
+                            SignalServer.run(sock.accept());
+                        }
+                        catch(Throwable e)
+                        {
+                            printStackTrace(e);
+                        }
+                    }
+                }).start();
+                messages.add("Signal server running on port 1234.");
+                messages.add("See \"protocol.txt\" for protocol documentation.");
             }
             catch(Throwable e)
             {

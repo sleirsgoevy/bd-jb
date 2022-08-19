@@ -193,14 +193,14 @@ public class NativeStuff
             NativeUtils.putLong(stack+64, 0);
             /* order is reversed */
             long ctx2 = 0;
-            ctx2 = chainContext(ctx2, NativeUtils.dlsym(0x2001, "pthread_kill"), 0, 5, 0);
-            long kill_args = NativeUtils.getLong(ctx2+0x58);
+            //ctx2 = chainContext(ctx2, NativeUtils.dlsym(0x2001, "pthread_kill"), 0, 5, 0);
+            ctx2 = chainContext(ctx2, 0x1234, 0, 0, 0);
+            NativeUtils.putLong(ctx2, 0);
+            NativeUtils.putLong(ctx2+8, 0);
+            long kill_args = NativeUtils.allocateMemory(8); //NativeUtils.getLong(ctx2+0x58);
             ctx2 = chainContext(ctx2, NativeUtils.dlsym(0x2001, "sigaltstack"), stack+48, 0, 0);
-            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 4, stack, 0, 0, 0, 0);
-            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 5, stack, 0, 0, 0, 0);
-            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 10, stack, 0, 0, 0, 0);
-            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 11, stack, 0, 0, 0, 0);
-            callFunction(NativeUtils.dlsym(0x2001, "sigaction"), 12, stack, 0, 0, 0, 0);
+            for(int i = 0; i < 32; i++)
+                callFunction(NativeUtils.dlsym(0x2001, "sigaction"), i, stack, 0, 0, 0, 0);
             callFunction(NativeUtils.dlsym(0x2001, "pthread_create"), kill_args, 0, setcontext, ctx2, 0, 0);
         }
         public void awaitSignal() throws Exception
