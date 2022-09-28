@@ -82,7 +82,7 @@ public class MyXlet implements Xlet, ControllerListener {
             {
                 escapeSandbox();
                 //runJSServer(4321);
-                (new Thread()
+                /*(new Thread()
                 {
                     public void run()
                     {
@@ -98,7 +98,21 @@ public class MyXlet implements Xlet, ControllerListener {
                     }
                 }).start();
                 messages.add("Signal server running on port 1234.");
-                messages.add("See \"protocol.txt\" for protocol documentation.");
+                messages.add("See \"protocol.txt\" for protocol documentation.");*/
+                KernelRW krw = new KernelRW();
+                String log = krw.main();
+                String line = "";
+                for(int i = 0; i < log.length(); i++)
+                {
+                    char x = log.charAt(i);
+                    if(x == '\n')
+                    {
+                        messages.add(line);
+                        line = "";
+                    }
+                    else
+                        line += x;
+                }
             }
             catch(Throwable e)
             {
