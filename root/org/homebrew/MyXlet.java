@@ -26,6 +26,7 @@ public class MyXlet implements Xlet, ControllerListener {
 	private Container gui;
 	private XletContext context;
 	private final ArrayList messages = new ArrayList();
+    public static KernelRW krw;
 
     public void escapeSandbox() throws Exception
     {
@@ -99,7 +100,7 @@ public class MyXlet implements Xlet, ControllerListener {
                 }).start();
                 messages.add("Signal server running on port 1234.");
                 messages.add("See \"protocol.txt\" for protocol documentation.");*/
-                KernelRW krw = new KernelRW();
+                krw = new KernelRW();
                 String log = krw.main();
                 String line = "";
                 for(int i = 0; i < log.length(); i++)
@@ -113,6 +114,17 @@ public class MyXlet implements Xlet, ControllerListener {
                     else
                         line += x;
                 }
+                /*if(krw.isOk())
+                {
+                    messages.add("JS REPL running on port 4321");
+                    (new Thread()
+                    {
+                        public void run()
+                        {
+                            runJSServer(4321);
+                        }
+                    }).start();
+                }*/
             }
             catch(Throwable e)
             {
