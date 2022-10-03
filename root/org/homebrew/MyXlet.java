@@ -114,17 +114,27 @@ public class MyXlet implements Xlet, ControllerListener {
                     else
                         line += x;
                 }
-                /*if(krw.isOk())
+                if(krw.isOk())
                 {
-                    messages.add("JS REPL running on port 4321");
+                    KernelStuff.jailbreak();
+                    messages.add("Directory listing of /:");
+                    String[] ls = NativeStuff.listdir("/");
+                    for(int i = 0; i < ls.length; i += 5)
+                    {
+                        String s = "* "+ls[i];
+                        for(int j = i+1; j < ls.length && j - i < 5; j++)
+                            s += ", " + ls[j];
+                        messages.add(s);
+                    }
+                    /*messages.add("JS REPL running on port 4321");
                     (new Thread()
                     {
                         public void run()
                         {
                             runJSServer(4321);
                         }
-                    }).start();
-                }*/
+                    }).start();*/
+                }
             }
             catch(Throwable e)
             {
