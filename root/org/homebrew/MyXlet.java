@@ -63,6 +63,20 @@ public class MyXlet implements Xlet, ControllerListener {
         (new MyXlet()).runJSServer(4321);
     }*/
 
+    public void runPayloadServer(int port) throws Exception
+    {
+        java.net.ServerSocket sock = new java.net.ServerSocket(port);
+        KernelStuff.jailbreak();
+        while(true)
+        {
+            krw.notify("waiting for payload");
+            byte[] payload = NativeUtils.readResource(sock.accept().getInputStream());
+            long addr = KernelStuff.map_payload(payload);
+            krw.notify("running payload");
+            NativeStuff.callFunction(addr, NativeUtils.dlsym(0x2001, "sceKernelDlsym"), krw.master_sock, krw.victim_sock, krw.pktoptsLeak, 0, 0);
+        }
+    }
+
 	public void initXlet(XletContext context) {
 		this.context = context;
 		
@@ -116,7 +130,7 @@ public class MyXlet implements Xlet, ControllerListener {
                 }
                 if(krw.isOk())
                 {
-                    KernelStuff.jailbreak();
+                    /*KernelStuff.jailbreak();
                     messages.add("Directory listing of /:");
                     String[] ls = NativeStuff.listdir("/");
                     for(int i = 0; i < ls.length; i += 5)
@@ -125,7 +139,7 @@ public class MyXlet implements Xlet, ControllerListener {
                         for(int j = i+1; j < ls.length && j - i < 5; j++)
                             s += ", " + ls[j];
                         messages.add(s);
-                    }
+                    }*/
                     /*messages.add("JS REPL running on port 4321");
                     (new Thread()
                     {
@@ -134,6 +148,21 @@ public class MyXlet implements Xlet, ControllerListener {
                             runJSServer(4321);
                         }
                     }).start();*/
+                    messages.add("Payload server running on port 9019");
+                    (new Thread()
+                    {
+                        public void run()
+                        {
+                            try
+                            {
+                                runPayloadServer(9019);
+                            }
+                            catch(Throwable e)
+                            {
+                                printStackTrace(e);
+                            }
+                        }
+                    }).start();
                 }
             }
             catch(Throwable e)

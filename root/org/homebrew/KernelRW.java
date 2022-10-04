@@ -13,6 +13,8 @@ public class KernelRW extends Thread
     public long pktoptsLeak;
     public int kqueue_fd;
     public long kqueue_addr;
+    public int master_sock;
+    public int victim_sock;
 
     private static long F(int dll, String name)
     {
@@ -77,9 +79,7 @@ public class KernelRW extends Thread
 
     private KernelRW master;
 
-    private int master_sock;
     private int overlap_sock;
-    private int victim_sock;
     private int[] spray_sock;
     private String log;
     private boolean triggered;

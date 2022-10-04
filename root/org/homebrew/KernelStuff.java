@@ -12,6 +12,10 @@ public class KernelStuff
     private static long rpipe = 0;
     private static long read = 0;
     private static long write = 0;
+    private static long mmap = 0;
+    private static long sceKernelJitCreateSharedMemory = 0;
+    private static long sceKernelJitCreateAliasOfSharedMemory = 0;
+    private static long sceKernelJitMapSharedMemory = 0;
 
     public static void setRW(KernelRW k)
     {
@@ -46,6 +50,14 @@ public class KernelStuff
             read = NativeUtils.dlsym(0x2001, "read");
         if(write == 0)
             write = NativeUtils.dlsym(0x2001, "write");
+        if(mmap == 0)
+            mmap = NativeUtils.dlsym(0x2001, "mmap");
+        if(sceKernelJitCreateSharedMemory == 0)
+            sceKernelJitCreateSharedMemory = NativeUtils.dlsym(0x2001, "sceKernelJitCreateSharedMemory");
+        if(sceKernelJitCreateAliasOfSharedMemory == 0)
+            sceKernelJitCreateAliasOfSharedMemory = NativeUtils.dlsym(0x2001, "sceKernelJitCreateAliasOfSharedMemory");
+        if(sceKernelJitMapSharedMemory == 0)
+            sceKernelJitMapSharedMemory = NativeUtils.dlsym(0x2001, "sceKernelJitMapSharedMemory");
     }
 
     private static long pfind0(int pid0) throws Exception
@@ -107,5 +119,63 @@ public class KernelStuff
     public static void jailbreak() throws Exception
     {
         jailbreak(0x4801000000000013l);
+    }
+
+    public static long map_jit(byte[] data) throws Exception
+    {
+        init();
+        long len = data.length;
+        if(len % 16384 != 0)
+            len = (len | 16383) + 1;
+        long ans = NativeUtils.allocateMemory(8);
+        if(NativeStuff.callFunction(sceKernelJitCreateSharedMemory, 0, len, 7, ans, 0, 0) != 0)
+            throw new Exception("sceKernelJitCreateSharedMemory failed");
+        int main_fd = NativeUtils.getInt(ans);
+        if(NativeStuff.callFunction(sceKernelJitCreateAliasOfSharedMemory, main_fd, 3, ans, 0, 0, 0) != 0)
+            throw new Exception("sceKernelJitCreateAliasOfSharedMemory failed");
+        int alias_fd = NativeUtils.getInt(ans);
+        long main_map = NativeStuff.callFunction(mmap, 0xc00000000l, len, 5, 1, main_fd, 0);
+        if(main_map == -1)
+            throw new Exception("mmap(main) failed");
+        if(NativeStuff.callFunction(sceKernelJitMapSharedMemory, alias_fd, 3, ans, 0, 0, 0) != 0)
+            throw new Exception("sceKernelJitMapSharedMemory failed");
+        long alias_map = NativeUtils.getLong(ans);
+        long off = len - data.length;
+        for(int i = 0; i < data.length; i++)
+            NativeUtils.putByte(alias_map+off+i, data[i]);
+        NativeUtils.freeMemory(ans);
+        return main_map+off;
+    }
+
+    public static long map_payload(byte[] data) throws Exception
+    {
+        init();
+        if(data[0] == (byte)0xeb && data[1] == (byte)0x0b && data[2] == (byte)'P' && data[3] == (byte)'L' && data[4] == (byte)'D')
+        {
+            long text_size = 0;
+            for(int i = 12; i >= 5; i--)
+            {
+                int q = data[i];
+                q &= 255;
+                text_size = 256 * text_size + q;
+            }
+            byte[] text = new byte[(int)text_size];
+            for(int i = 0; i < data.length && i < text_size; i++)
+                text[i] = data[i];
+            long data_size = data.length - text_size;
+            if(data_size < 0)
+                data_size = 0;
+            long text_addr = map_jit(text);
+            long data_addr = text_addr + text_size;
+            if((data_addr & 0x3fff) != 0)
+                throw new Exception("data_addr not page-aligned");
+            long da = NativeStuff.callFunction(mmap, data_addr, data_size, 3, 4098, -1, 0);
+            if(da != data_addr)
+                throw new Exception("failed to mmap data");
+            for(int i = (int)text_size; i < data.length; i++)
+                NativeUtils.putByte(text_addr+i, data[i]);
+            return text_addr;
+        }
+        return map_jit(data);
     }
 }
