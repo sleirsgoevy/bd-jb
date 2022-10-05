@@ -73,7 +73,7 @@ public class MyXlet implements Xlet, ControllerListener {
             byte[] payload = NativeUtils.readResource(sock.accept().getInputStream());
             long addr = KernelStuff.map_payload(payload);
             krw.notify("running payload");
-            NativeStuff.callFunction(addr, NativeUtils.dlsym(0x2001, "sceKernelDlsym"), krw.master_sock, krw.victim_sock, krw.pktoptsLeak, 0, 0);
+            NativeStuff.callFunction(addr, NativeUtils.dlsym(0x2001, "sceKernelDlsym"), krw.master_sock, krw.victim_sock, krw.pktoptsLeak, KernelStuff.getDataBase(), 0);
         }
     }
 

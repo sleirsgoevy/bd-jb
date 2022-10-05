@@ -77,6 +77,12 @@ public class KernelStuff
         return pfind0(pid0);
     }
 
+    public static long getDataBase() throws Exception
+    {
+        init();
+        return kbase;
+    }
+
     public static int copyout(long dst, long src, int count) throws Exception
     {
         init();
